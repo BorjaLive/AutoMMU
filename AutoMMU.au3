@@ -2,10 +2,10 @@
 #AutoIt3Wrapper_Icon=..\..\Downloads\Dryicons-Aesthetica-2-Page-swap.ico
 #AutoIt3Wrapper_Outfile=..\AutoMMU.exe
 #AutoIt3Wrapper_Res_Description=Simulador de algoritmos de remplazo
-#AutoIt3Wrapper_Res_Fileversion=0.0.1.3
+#AutoIt3Wrapper_Res_Fileversion=0.0.3.1
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Res_ProductName=AutoMMU
-#AutoIt3Wrapper_Res_ProductVersion=0.0.1
+#AutoIt3Wrapper_Res_ProductVersion=0.0.3
 #AutoIt3Wrapper_Res_CompanyName=B0vE
 #AutoIt3Wrapper_Res_LegalCopyright=Borja López Pineda
 #AutoIt3Wrapper_Res_LegalTradeMarks=GNU GPL 3 copyleft
@@ -394,7 +394,7 @@ Func event_run()
 		GUICtrlSetBkColor(-1, 0xFFFFFF)
 	Next
 
-	GUICtrlCreateLabel("Numero de no fallos: "&$nNF&"  Numeo de fallos: "&$nF&" Numero de remplazos: "&$nR, 20, 70+($height)*25, $width*45)
+	GUICtrlCreateLabel("Numero de no fallos: "&$nNF&"  Numeo de fallos: "&$nF&" Numero de remplazos: "&$nR, 20, 70+($height)*25, $width*45, 50)
 	GUICtrlSetFont(-1, 10)
 
 	GUISetOnEvent($GUI_EVENT_CLOSE, "event_closeResoult")

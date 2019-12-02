@@ -291,6 +291,8 @@ Func __MMU_CLOCK($references, $wsP, $wsResetsBR, $workingSetS, $inicialPageTable
 				$resoult[0][$instant] = "**"
 			EndIf
 			___FIFOadd($fifo, $references[$instant])
+		ElseIf ___PTgetValue($pageTable, "R", $references[$instant]) == 0 Then
+			___FIFOadd($fifo, $references[$instant])	;Medida para que las nuevas paginas tambien entren
 		EndIf
 		___PTsetValue($pageTable, "R", $references[$instant], 1)
 		___prepareNext($resoult, $instant)
@@ -366,6 +368,8 @@ Func __MMU_CLOCK_LINUX($references, $wsP, $wsResetsBR, $workingSetS, $inicialPag
 				$resoult[0][$instant] = "**"
 			EndIf
 			___FIFOadd($fifo, $references[$instant])
+		ElseIf ___PTgetValue($pageTable, "R", $references[$instant]) == 0 Then
+			___FIFOadd($fifo, $references[$instant])	;Medida para que las nuevas paginas tambien entren
 		EndIf
 		___PTsetValue($pageTable, "Chances", $references[$instant], ___PTgetValue($pageTable, "Chances", $references[$instant]) + 1)
 		___prepareNext($resoult, $instant)
@@ -397,7 +401,7 @@ Func ___FindFifoReplacement(ByRef $resoult, $instant, ByRef $fifo)
 			If $resoult[$i][$instant] == $lastPage Then Return $i
 		Next
 	WEnd
-	Return 1
+	Return 0
 EndFunc   ;==>___FindFifoReplacement
 Func ___FindCounterReplacement(ByRef $resoult, $instant, ByRef $pageTable)
 	$lowestPage = 0
@@ -451,25 +455,17 @@ Func ___FindBufferReplacement(ByRef $resoult, $instant, ByRef $buffer)
 	Return $lowestFrame
 EndFunc   ;==>___FindBufferReplacement
 Func ___FindClockReplacement(ByRef $resoult, $instant, ByRef $pageTable, ByRef $fifo)
-	$bestPage = ""
-	$i = 0
-
-	While $bestPage == ""
-		$page = ___FIFOget($fifo, $i)
-		;TODO: Comprobar tambien se la pagina esta entre las presentes
-		If ___PTgetValue($pageTable, "R", $page) == 0 Then
-			$bestPage = $page
-			___FIFOremove($fifo, $i)
-		Else
+	While Not ___FIFOempty($fifo)
+		$page = ___FIFOremove($fifo)
+		If ___PTgetValue($pageTable, "R", $page) == 1 Then
 			___PTsetValue($pageTable, "R", $page, 0)
-			$i += 1
-			If $i == ___FIFOsize($fifo) Then $i = 0
+			___FIFOadd($fifo, $page)
+			ContinueLoop
 		EndIf
+		For $i = 1 To UBound($resoult, 1)-1
+			If $resoult[$i][$instant] == $page Then Return $i
+		Next
 	WEnd
-
-	For $i = 1 To UBound($resoult, 1)-1
-		If $resoult[$i][$instant] == $bestPage Then Return $i
-	Next
 	Return 0
 EndFunc   ;==>___FindClockReplacement
 Func ___FindXFUReplacement(ByRef $resoult, $instant, ByRef $pageTable, $LFUxMFU)
@@ -493,25 +489,17 @@ Func ___FindXFUReplacement(ByRef $resoult, $instant, ByRef $pageTable, $LFUxMFU)
 	Return $bestFrame
 EndFunc   ;==>___FindXFUReplacement
 Func ___FindLinuxReplacement(ByRef $resoult, $instant, ByRef $pageTable, ByRef $fifo)
-	$bestPage = ""
-	$i = 0
-
-	While $bestPage == ""
-		$page = ___FIFOget($fifo, $i)
-		;TODO: Comprobar tambien se la pagina esta entre las presentes
-		If ___PTgetValue($pageTable, "Chances", $page) == 0 Then
-			$bestPage = $page
-			___FIFOremove($fifo, $i)
-		Else
-			___PTsetValue($pageTable, "Chances", $page, ___PTgetValue($pageTable, "Chances", $page) - 1)
-			$i += 1
-			If $i == ___FIFOsize($fifo) Then $i = 0
+	While Not ___FIFOempty($fifo)
+		$page = ___FIFOremove($fifo)
+		If ___PTgetValue($pageTable, "Chances", $page) > 0 Then
+			___PTsetValue($pageTable, "Chances", $page, ___PTgetValue($pageTable, "Chances", $page)-1)
+			___FIFOadd($fifo, $page)
+			ContinueLoop
 		EndIf
+		For $i = 1 To UBound($resoult, 1)-1
+			If $resoult[$i][$instant] == $page Then Return $i
+		Next
 	WEnd
-
-	For $i = 1 To UBound($resoult, 1)-1
-		If $resoult[$i][$instant] == $bestPage Then Return $i
-	Next
 	Return 0
 EndFunc   ;==>___FindLinuxReplacement
 
@@ -771,6 +759,10 @@ Func ___FIFOcreate()
 	Return $fifo
 EndFunc   ;==>___FIFOcreate
 Func ___FIFOadd(ByRef $fifo, $name)
+	For $i = 1 To $fifo[0]
+		If $name == $fifo[$i] Then MsgBox(16,"Error no controlado", "Ha ocurrido algo que no deberia ocurrir nunca."&@CRLF&"Se agrega a un fifo un elemento que ya estaba. Si lo metemos es porque antes tubo que salir joder.")
+	Next
+
 	$size = $fifo[0] + 1
 	$fifo[0] = $size
 	ReDim $fifo[$size + 1]
