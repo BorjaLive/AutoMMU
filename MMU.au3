@@ -54,7 +54,7 @@ Dim $SPECTED_INICIALIZATION_PARAMETERS[10] = [0, 1, 2, 2, 3, 3, 3, 2, 2, 3]
 		InitialPT(COUNTER) InitialFifo
 #ce
 #EndRegion INICIALIZATION_PARAMETERS
-#EndRegion CONSTTANTS
+#EndRegion CONSTTANdTS
 
 ;___Test_1()
 ;___Test_2()
@@ -66,7 +66,7 @@ Dim $SPECTED_INICIALIZATION_PARAMETERS[10] = [0, 1, 2, 2, 3, 3, 3, 2, 2, 3]
 ;___Test_8()
 
 #Region INTERFACE
-Func _MMUsolve($algorithm, $references, $initialFrames, $wsResetsBR = False, $workingSetS = 0, $inicializacion = 0)
+Func _MMUsolve($algorithm, $references, $initialFrames, $wsResetsBR = False, $workingSetS = 0, $wsPolitic = 1, $inicializacion = 0)
 	If IsArray($inicializacion) Then
 		$initialPages = $inicializacion[0]
 	Else
@@ -86,6 +86,9 @@ Func _MMUsolve($algorithm, $references, $initialFrames, $wsResetsBR = False, $wo
 		Local $resoult[$initialFrames + 1][UBound($references)]
 	EndIf
 	For $i = 1 To UBound($resoult, 1) - 1
+		$resoult[$i][0] = "BLOCK"
+	Next
+	For $i = 1 To $initialFrames
 		$resoult[$i][0] = "NULL"
 	Next
 	If IsArray($initialPages) Then
@@ -96,27 +99,32 @@ Func _MMUsolve($algorithm, $references, $initialFrames, $wsResetsBR = False, $wo
 	For $i = 0 To UBound($references) - 1
 		$resoult[0][$i] = ""
 	Next
+	If $wsPolitic == 1 Then
+		$wsPolitic = $algorithm
+	Else
+		$wsPolitic = -$wsPolitic
+	EndIf
 
 	;Ejecutar el algoritmo
 	Switch ($algorithm)
 		Case $SWAP_ALGORITHM_OPTIMUS
-			__MMU_optimus($references, $initialFrames, $workingSetS, $resoult)
+			__MMU_optimus($references, $wsPolitic, $workingSetS, $resoult)
 		Case $SWAP_ALGORITHM_FIFO
-			__MMU_FIFO($references, $initialFrames, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult)
+			__MMU_FIFO($references, $wsPolitic, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult)
 		Case $SWAP_ALGORITHM_LRU
-			__MMU_LRU($references, $initialFrames, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult)
+			__MMU_LRU($references, $wsPolitic, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult)
 		Case $SWAP_ALGORITHM_NRU
-			__MMU_NRU($references, $initialFrames, $wsResetsBR, $workingSetS, IsArray($inicializacion) ? $inicializacion[2] : 0, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult)
+			__MMU_NRU($references, $wsPolitic, $wsResetsBR, $workingSetS, IsArray($inicializacion) ? $inicializacion[2] : 0, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult)
 		Case $SWAP_ALGORITHM_AGING
-			__NMU_AGING($references, $initialFrames, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 8, IsArray($inicializacion) ? $inicializacion[2] : 0, $resoult)
+			__NMU_AGING($references, $wsPolitic, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 8, IsArray($inicializacion) ? $inicializacion[2] : 0, $resoult)
 		Case $SWAP_ALGORITHM_CLOCK
-			__MMU_CLOCK($references, $initialFrames, $wsResetsBR, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, IsArray($inicializacion) ? $inicializacion[2] : 0, $resoult)
+			__MMU_CLOCK($references, $wsPolitic, $wsResetsBR, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, IsArray($inicializacion) ? $inicializacion[2] : 0, $resoult)
 		Case $SWAP_ALGORITHM_LFU
-			__MMU_XFU($references, $initialFrames, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult, 1)
+			__MMU_XFU($references, $wsPolitic, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult, 1)
 		Case $SWAP_ALGORITHM_MFU
-			__MMU_XFU($references, $initialFrames, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult, 0)
+			__MMU_XFU($references, $wsPolitic, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, $resoult, 0)
 		Case $SWAP_ALGORITHM_CLOCK_LINUX
-			__MMU_CLOCK_LINUX($references, $initialFrames, $wsResetsBR, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, IsArray($inicializacion) ? $inicializacion[2] : 0, $resoult)
+			__MMU_CLOCK_LINUX($references, $wsPolitic, $wsResetsBR, $workingSetS, IsArray($inicializacion) ? $inicializacion[1] : 0, IsArray($inicializacion) ? $inicializacion[2] : 0, $resoult)
 	EndSwitch
 
 	If @error Then SetError(@error, @extended, $resoult)
@@ -125,28 +133,34 @@ EndFunc   ;==>_MMUsolve
 #EndRegion INTERFACE
 
 #Region SUB_UDF
-Func __MMU_optimus($references, $nFrames, $workingSetS, ByRef $resoult)
+Func __MMU_optimus($references, $wsP, $workingSetS, ByRef $resoult)
+	Local $o[1]
 	For $instant = 0 To UBound($references) - 1
-		___WorkingSetCalcule($references, $instant, $workingSetS, $resoult, $nFrames)
-		If Not ___obiousSolution($resoult, $nFrames, $instant, $references) Then
-			$resoult[___FindOptimusReplacement($resoult, $nFrames, $instant, $references)][$instant] = $references[$instant]
+		___WorkingSetCalcule($references, $instant, $workingSetS, $wsP, $resoult, $o)
+
+		If Not ___obiousSolution($resoult, $instant, $references) Then
+			$resoult[___FindOptimusReplacement($resoult, $instant, $references)][$instant] = $references[$instant]
 			$resoult[0][$instant] = "**"
 		EndIf
 		___prepareNext($resoult, $instant)
 	Next
 EndFunc   ;==>__MMU_optimus
-Func __MMU_FIFO($references, $nFrames, $workingSetS, $inicialFifo, ByRef $resoult)
+Func __MMU_FIFO($references, $wsP, $workingSetS, $inicialFifo, ByRef $resoult)
 	If ___FIFOisfifo($inicialFifo) Then
 		$fifo = $inicialFifo
 	Else
 		$fifo = ___FIFOcreate()
 	EndIf
 
+	Local $o[1]
 	For $instant = 0 To UBound($references) - 1
-		___WorkingSetCalcule($references, $instant, $workingSetS, $resoult, $nFrames)
-		If Not ___isPresent($resoult, $nFrames, $instant, $references) Then
-			If Not ___asignateFreeFrame($resoult, $nFrames, $instant, $references) Then
-				$replacement = ___FindFifoReplacement($resoult, $nFrames, $instant, $fifo)
+		$o[0] = $fifo
+		___WorkingSetCalcule($references, $instant, $workingSetS, $wsP, $resoult, $o)
+		$fifo = $o[0]
+
+		If Not ___isPresent($resoult, $instant, $references) Then
+			If Not ___asignateFreeFrame($resoult, $instant, $references) Then
+				$replacement = ___FindFifoReplacement($resoult, $instant, $fifo)
 				$resoult[$replacement][$instant] = $references[$instant]
 				$resoult[0][$instant] = "**"
 			EndIf
@@ -155,7 +169,7 @@ Func __MMU_FIFO($references, $nFrames, $workingSetS, $inicialFifo, ByRef $resoul
 		___prepareNext($resoult, $instant)
 	Next
 EndFunc   ;==>__MMU_FIFO
-Func __MMU_LRU($references, $nFrames, $workingSetS, $inicialCounters, ByRef $resoult)
+Func __MMU_LRU($references, $wsP, $workingSetS, $inicialCounters, ByRef $resoult)
 	If ___PTispt($inicialCounters) And ___PThasColum($inicialCounters, "Counter") Then
 		$pageTable = $inicialCounters
 	Else
@@ -165,10 +179,14 @@ Func __MMU_LRU($references, $nFrames, $workingSetS, $inicialCounters, ByRef $res
 
 	$HWcounter = 1
 
+	Local $o[1]
 	For $instant = 0 To UBound($references) - 1
-		___WorkingSetCalcule($references, $instant, $workingSetS, $resoult, $nFrames)
-		If Not ___obiousSolution($resoult, $nFrames, $instant, $references) Then
-			$replacement = ___FindCounterReplacement($resoult, $nFrames, $instant, $pageTable)
+		$o[0] = $pageTable
+		___WorkingSetCalcule($references, $instant, $workingSetS, $wsP, $resoult, $o)
+		$pageTable = $o[0]
+
+		If Not ___obiousSolution($resoult, $instant, $references) Then
+			$replacement = ___FindCounterReplacement($resoult, $instant, $pageTable)
 			$resoult[$replacement][$instant] = $references[$instant]
 			$resoult[0][$instant] = "**"
 		EndIf
@@ -178,7 +196,7 @@ Func __MMU_LRU($references, $nFrames, $workingSetS, $inicialCounters, ByRef $res
 		$HWcounter += 1
 	Next
 EndFunc   ;==>__MMU_LRU
-Func __MMU_NRU($references, $nFrames, $wsResetsBR, $workingSetS, $moficications, $inicialPageTable, ByRef $resoult)
+Func __MMU_NRU($references, $wsP, $wsResetsBR, $workingSetS, $moficications, $inicialPageTable, ByRef $resoult)
 	If ___PTispt($inicialPageTable) And ___PThasColum($inicialPageTable, "R") And ___PThasColum($inicialPageTable, "M") Then
 		$pageTable = $inicialPageTable
 		If Not ___PThasColum($inicialPageTable, "Counter") Then
@@ -192,11 +210,17 @@ Func __MMU_NRU($references, $nFrames, $wsResetsBR, $workingSetS, $moficications,
 	EndIf
 	$HWcounter = 1
 
+	Local $o[1]
 	For $instant = 0 To UBound($references) - 1
-		___WorkingSetCalcule($references, $instant, $workingSetS, $resoult, $nFrames)
-		If ___WorkingSetIsTime($instant, $workingSetS) Then ___PTsetValue($pageTable, "R", "ALL", 0)
-		If Not ___obiousSolution($resoult, $nFrames, $instant, $references) Then
-			$replacement = ___FindRMCReplacement($resoult, $nFrames, $instant, $pageTable)
+		$o[0] = $pageTable
+		___WorkingSetCalcule($references, $instant, $workingSetS, $wsP, $resoult, $o)
+		$pageTable = $o[0]
+
+		If ___WorkingSetIsTime($instant, $workingSetS) And $wsResetsBR Then ___PTsetValue($pageTable, "R", "ALL", 0)
+		If Not ___obiousSolution($resoult, $instant, $references) Then
+			$replacement = ___FindRMCReplacement($resoult, $instant, $pageTable)
+			___PTsetValue($pageTable, "R", $resoult[$replacement][$instant], 0)
+			___PTsetValue($pageTable, "M", $resoult[$replacement][$instant], 0)
 			$resoult[$replacement][$instant] = $references[$instant]
 			$resoult[0][$instant] = "**"
 		EndIf
@@ -207,24 +231,28 @@ Func __MMU_NRU($references, $nFrames, $wsResetsBR, $workingSetS, $moficications,
 		$HWcounter += 1
 	Next
 EndFunc   ;==>__MMU_NRU
-Func __NMU_AGING($references, $nFrames, $workingSetS, $bufferSize, $inicialBuffer, ByRef $resoult)
+Func __NMU_AGING($references, $wsP, $workingSetS, $bufferSize, $inicialBuffer, ByRef $resoult)
 	If ___Bufferisbuffer($inicialBuffer, $bufferSize, UBound($resoult, 1) - 1) Then
 		$buffer = $inicialBuffer
 	Else
 		$buffer = ___BufferCreate($bufferSize, UBound($resoult, 1) - 1)
 	EndIf
 
+	Local $o[1]
 	For $instant = 0 To UBound($references) - 1
-		___WorkingSetCalcule($references, $instant, $workingSetS, $resoult, $nFrames)
-		$present = ___isPresent($resoult, $nFrames, $instant, $references)
+		$o[0] = $buffer
+		___WorkingSetCalcule($references, $instant, $workingSetS, $wsP, $resoult, $o)
+		$buffer = $o[0]
+
+		$present = ___isPresent($resoult, $instant, $references)
 		If $present Then
 			___BufferUpdate($buffer, $present - 1)
 		Else
-			$free = ___asignateFreeFrame($resoult, $nFrames, $instant, $references)
+			$free = ___asignateFreeFrame($resoult, $instant, $references)
 			If $free Then
 				___BufferUpdate($buffer, $free - 1)
 			Else
-				$replacement = ___FindBufferReplacement($resoult, $nFrames, $instant, $buffer)
+				$replacement = ___FindBufferReplacement($resoult, $instant, $buffer)
 				$resoult[$replacement][$instant] = $references[$instant]
 				$resoult[0][$instant] = "**"
 				___BufferUpdate($buffer, $replacement - 1)
@@ -233,7 +261,7 @@ Func __NMU_AGING($references, $nFrames, $workingSetS, $bufferSize, $inicialBuffe
 		___prepareNext($resoult, $instant)
 	Next
 EndFunc   ;==>__NMU_AGING
-Func __MMU_CLOCK($references, $nFrames, $wsResetsBR, $workingSetS, $inicialPageTable, $inicialFifo, ByRef $resoult)
+Func __MMU_CLOCK($references, $wsP, $wsResetsBR, $workingSetS, $inicialPageTable, $inicialFifo, ByRef $resoult)
 	If ___PTispt($inicialPageTable) And ___PThasColum($inicialPageTable, "R") Then
 		$pageTable = $inicialPageTable
 	Else
@@ -246,12 +274,19 @@ Func __MMU_CLOCK($references, $nFrames, $wsResetsBR, $workingSetS, $inicialPageT
 		$fifo = ___FIFOcreate()
 	EndIf
 
+	Local $o[2]
 	For $instant = 0 To UBound($references) - 1
-		___WorkingSetCalcule($references, $instant, $workingSetS, $resoult, $nFrames)
+		$o[0] = $pageTable
+		$o[1] = $fifo
+		___WorkingSetCalcule($references, $instant, $workingSetS, $wsP, $resoult, $o)
+		$pageTable = $o[0]
+		$fifo = $o[1]
+
+
 		If ___WorkingSetIsTime($instant, $workingSetS) Then ___PTsetValue($pageTable, "R", "ALL", 0)
-		If Not ___isPresent($resoult, $nFrames, $instant, $references) Then
-			If Not ___asignateFreeFrame($resoult, $nFrames, $instant, $references) Then
-				$replacement = ___FindClockReplacement($resoult, $nFrames, $instant, $pageTable, $fifo)
+		If Not ___isPresent($resoult, $instant, $references) Then
+			If Not ___asignateFreeFrame($resoult, $instant, $references) Then
+				$replacement = ___FindClockReplacement($resoult, $instant, $pageTable, $fifo)
 				$resoult[$replacement][$instant] = $references[$instant]
 				$resoult[0][$instant] = "**"
 			EndIf
@@ -261,7 +296,7 @@ Func __MMU_CLOCK($references, $nFrames, $wsResetsBR, $workingSetS, $inicialPageT
 		___prepareNext($resoult, $instant)
 	Next
 EndFunc   ;==>__MMU_CLOCK
-Func __MMU_XFU($references, $nFrames, $workingSetS, $inicialCounters, ByRef $resoult, $LFUxMFU)
+Func __MMU_XFU($references, $wsP, $workingSetS, $inicialCounters, ByRef $resoult, $LFUxMFU)
 	If ___PTispt($inicialCounters) And ___PThasColum($inicialCounters, "Counter") Then
 		$pageTable = $inicialCounters
 		If Not ___PThasColum($pageTable, "Entrance") Then
@@ -274,12 +309,20 @@ Func __MMU_XFU($references, $nFrames, $workingSetS, $inicialCounters, ByRef $res
 	EndIf
 
 	$HWcounter = 1
+	Local $o[3]
 	For $instant = 0 To UBound($references) - 1
-		___WorkingSetCalcule($references, $instant, $workingSetS, $resoult, $nFrames)
-		If Not ___isPresent($resoult, $nFrames, $instant, $references) Then
-			$free = ___asignateFreeFrame($resoult, $nFrames, $instant, $references)
+		$o[0] = $pageTable
+		$o[1] = $LFUxMFU
+		$o[2] = $HWcounter
+		___WorkingSetCalcule($references, $instant, $workingSetS, $wsP, $resoult, $o)
+		$pageTable = $o[0]
+		$LFUxMFU = $o[1]
+		$HWcounter = $o[2]
+
+		If Not ___isPresent($resoult, $instant, $references) Then
+			$free = ___asignateFreeFrame($resoult, $instant, $references)
 			If Not $free Then
-				$replacement = ___FindXFUReplacement($resoult, $nFrames, $instant, $pageTable, $LFUxMFU)
+				$replacement = ___FindXFUReplacement($resoult, $instant, $pageTable, $LFUxMFU)
 				___PTsetValue($pageTable, "Counter", $resoult[$replacement][$instant], 0)
 				$resoult[$replacement][$instant] = $references[$instant]
 				$resoult[0][$instant] = "**"
@@ -294,7 +337,7 @@ Func __MMU_XFU($references, $nFrames, $workingSetS, $inicialCounters, ByRef $res
 		$HWcounter += 1
 	Next
 EndFunc   ;==>__MMU_XFU
-Func __MMU_CLOCK_LINUX($references, $nFrames, $wsResetsBR, $workingSetS, $inicialPageTable, $inicialFifo, ByRef $resoult)
+Func __MMU_CLOCK_LINUX($references, $wsP, $wsResetsBR, $workingSetS, $inicialPageTable, $inicialFifo, ByRef $resoult)
 	If ___PTispt($inicialPageTable) And ___PThasColum($inicialPageTable, "Chances") Then
 		$pageTable = $inicialPageTable
 	Else
@@ -307,12 +350,18 @@ Func __MMU_CLOCK_LINUX($references, $nFrames, $wsResetsBR, $workingSetS, $inicia
 		$fifo = ___FIFOcreate()
 	EndIf
 
+	Local $o[2]
 	For $instant = 0 To UBound($references) - 1
-		___WorkingSetCalcule($references, $instant, $workingSetS, $resoult, $nFrames)
+		$o[0] = $pageTable
+		$o[1] = $fifo
+		___WorkingSetCalcule($references, $instant, $workingSetS, $wsP, $resoult, $o)
+		$pageTable = $o[0]
+		$fifo = $o[1]
+
 		If ___WorkingSetIsTime($instant, $workingSetS) Then ___PTsetValue($pageTable, "Chances", "ALL", 0)
-		If Not ___isPresent($resoult, $nFrames, $instant, $references) Then
-			If Not ___asignateFreeFrame($resoult, $nFrames, $instant, $references) Then
-				$replacement = ___FindLinuxReplacement($resoult, $nFrames, $instant, $pageTable, $fifo)
+		If Not ___isPresent($resoult, $instant, $references) Then
+			If Not ___asignateFreeFrame($resoult, $instant, $references) Then
+				$replacement = ___FindLinuxReplacement($resoult, $instant, $pageTable, $fifo)
 				$resoult[$replacement][$instant] = $references[$instant]
 				$resoult[0][$instant] = "**"
 			EndIf
@@ -323,35 +372,39 @@ Func __MMU_CLOCK_LINUX($references, $nFrames, $wsResetsBR, $workingSetS, $inicia
 	Next
 EndFunc   ;==>__MMU_CLOCK_LINUX
 
-Func ___FindOptimusReplacement(ByRef $resoult, $nFrames, $instant, ByRef $references)
+Func ___FindOptimusReplacement(ByRef $resoult, $instant, ByRef $references)
 	$bestFrame = 0
-	$bestScore = 0
-	For $frame = 1 To $nFrames
+	$bestScore = -1
+	For $frame = 1 To UBound($resoult, 1)-1
+		If Not ___FrameIsAvailable($resoult[$frame][$instant]) Then ContinueLoop
+
 		$score = $instant + 1
 		While $score < UBound($references) And $references[$score] <> $resoult[$frame][$instant]
 			$score += 1
 		WEnd
 		;MsgBox(0, "Score: "&$resoult[$frame][$instant], $score)
-		If $score > $bestScore Then
+		If $bestScore == -1 Or $score > $bestScore Then
 			$bestFrame = $frame
 			$bestScore = $score
 		EndIf
 	Next
 	Return $bestFrame
 EndFunc   ;==>___FindOptimusReplacement
-Func ___FindFifoReplacement(ByRef $resoult, $nFrames, $instant, ByRef $fifo)
+Func ___FindFifoReplacement(ByRef $resoult, $instant, ByRef $fifo)
 	While Not ___FIFOempty($fifo)
 		$lastPage = ___FIFOremove($fifo)
-		For $i = 1 To $nFrames
+		For $i = 1 To UBound($resoult, 1)-1
 			If $resoult[$i][$instant] == $lastPage Then Return $i
 		Next
 	WEnd
 	Return 1
 EndFunc   ;==>___FindFifoReplacement
-Func ___FindCounterReplacement(ByRef $resoult, $nFrames, $instant, ByRef $pageTable)
+Func ___FindCounterReplacement(ByRef $resoult, $instant, ByRef $pageTable)
 	$lowestPage = 0
 	$lowestCounter = -1
-	For $i = 1 To $nFrames
+	For $i = 1 To UBound($resoult, 1)-1
+		If Not ___FrameIsAvailable($resoult[$i][$instant]) Then ContinueLoop
+
 		$value = ___PTgetValue($pageTable, "Counter", $resoult[$i][$instant])
 		If $lowestCounter == -1 Or $value < $lowestCounter Then
 			$lowestCounter = $value
@@ -361,29 +414,33 @@ Func ___FindCounterReplacement(ByRef $resoult, $nFrames, $instant, ByRef $pageTa
 
 	Return $lowestPage
 EndFunc   ;==>___FindCounterReplacement
-Func ___FindRMCReplacement(ByRef $resoult, $nFrames, $instant, ByRef $pageTable)
-	$lowestPage = 0
+Func ___FindRMCReplacement(ByRef $resoult, $instant, ByRef $pageTable)
+	$lowestFrame = 0
 	$lowestCounter = -1
 	$lowestBits = -1
 
-	For $i = 1 To $nFrames
+	For $i = 1 To UBound($resoult, 1)-1
+		If Not ___FrameIsAvailable($resoult[$i][$instant]) Then ContinueLoop
+
 		$page = $resoult[$i][$instant]
 		$value = ___PTgetValue($pageTable, "Counter", $page)
 		$bits = ___PTgetValue($pageTable, "R", $page) * 2 + ___PTgetValue($pageTable, "M", $page)
 		If $lowestCounter == -1 Or $bits < $lowestBits Or ($bits == $lowestBits And $value < $lowestCounter) Then
 			$lowestCounter = $value
 			$lowestBits = $bits
-			$lowestPage = $i
+			$lowestFrame = $i
 		EndIf
 	Next
-	;MsgBox(0, "Menor "&$lowestPage, $lowestBits&"  "&$lowestCounter)
-	Return $lowestPage
+	;If $instant == 5 Then MsgBox(0, "Menor "&$lowestFrame, $lowestBits&"  "&$lowestCounter)
+	Return $lowestFrame
 EndFunc   ;==>___FindRMCReplacement
-Func ___FindBufferReplacement(ByRef $resoult, $nFrames, $instant, ByRef $buffer)
+Func ___FindBufferReplacement(ByRef $resoult, $instant, ByRef $buffer)
 	$lowestValue = -1
 	$lowestFrame = 0
 
-	For $i = 1 To $nFrames
+	For $i = 1 To UBound($resoult, 1)-1
+		If Not ___FrameIsAvailable($resoult[$i][$instant]) Then ContinueLoop
+
 		$value = ___BufferGetValue($buffer, $i - 1)
 		If $lowestValue == -1 Or $value < $lowestValue Then
 			$lowestValue = $value
@@ -393,7 +450,7 @@ Func ___FindBufferReplacement(ByRef $resoult, $nFrames, $instant, ByRef $buffer)
 
 	Return $lowestFrame
 EndFunc   ;==>___FindBufferReplacement
-Func ___FindClockReplacement(ByRef $resoult, $nFrames, $instant, ByRef $pageTable, ByRef $fifo)
+Func ___FindClockReplacement(ByRef $resoult, $instant, ByRef $pageTable, ByRef $fifo)
 	$bestPage = ""
 	$i = 0
 
@@ -410,17 +467,19 @@ Func ___FindClockReplacement(ByRef $resoult, $nFrames, $instant, ByRef $pageTabl
 		EndIf
 	WEnd
 
-	For $i = 1 To $nFrames
+	For $i = 1 To UBound($resoult, 1)-1
 		If $resoult[$i][$instant] == $bestPage Then Return $i
 	Next
 	Return 0
 EndFunc   ;==>___FindClockReplacement
-Func ___FindXFUReplacement(ByRef $resoult, $nFrames, $instant, ByRef $pageTable, $LFUxMFU)
+Func ___FindXFUReplacement(ByRef $resoult, $instant, ByRef $pageTable, $LFUxMFU)
 	$bestFrame = 0
 	$bestEntrance = 0
 	$bestScore = -1
 
-	For $i = 1 To $nFrames
+	For $i = 1 To UBound($resoult, 1)-1
+		If Not ___FrameIsAvailable($resoult[$i][$instant]) Then ContinueLoop
+
 		$score = ___PTgetValue($pageTable, "Counter", $resoult[$i][$instant])
 		$entrance = ___PTgetValue($pageTable, "Entrance", $resoult[$i][$instant])
 		If $bestScore == -1 Or (($score > $bestScore Or ($score == $bestScore And $entrance < $bestEntrance)) And $LFUxMFU == 0) Or (($score < $bestScore Or ($score == $bestScore And $entrance < $bestEntrance)) And $LFUxMFU == 1) Then
@@ -433,7 +492,7 @@ Func ___FindXFUReplacement(ByRef $resoult, $nFrames, $instant, ByRef $pageTable,
 
 	Return $bestFrame
 EndFunc   ;==>___FindXFUReplacement
-Func ___FindLinuxReplacement(ByRef $resoult, $nFrames, $instant, ByRef $pageTable, ByRef $fifo)
+Func ___FindLinuxReplacement(ByRef $resoult, $instant, ByRef $pageTable, ByRef $fifo)
 	$bestPage = ""
 	$i = 0
 
@@ -450,23 +509,23 @@ Func ___FindLinuxReplacement(ByRef $resoult, $nFrames, $instant, ByRef $pageTabl
 		EndIf
 	WEnd
 
-	For $i = 1 To $nFrames
+	For $i = 1 To UBound($resoult, 1)-1
 		If $resoult[$i][$instant] == $bestPage Then Return $i
 	Next
 	Return 0
 EndFunc   ;==>___FindLinuxReplacement
 
-Func ___obiousSolution(ByRef $resoult, $nFrames, $instant, $references)
-	Return ___isPresent($resoult, $nFrames, $instant, $references) Or ___asignateFreeFrame($resoult, $nFrames, $instant, $references)
+Func ___obiousSolution(ByRef $resoult, $instant, $references)
+	Return ___isPresent($resoult, $instant, $references) Or ___asignateFreeFrame($resoult, $instant, $references)
 EndFunc   ;==>___obiousSolution
-Func ___isPresent(ByRef $resoult, $nFrames, $instant, $references)
-	For $i = 1 To $nFrames
+Func ___isPresent(ByRef $resoult, $instant, $references)
+	For $i = 1 To UBound($resoult, 1)-1
 		If $resoult[$i][$instant] == $references[$instant] Then Return $i
 	Next
 	Return False
 EndFunc   ;==>___isPresent
-Func ___asignateFreeFrame(ByRef $resoult, $nFrames, $instant, $references)
-	For $i = 1 To $nFrames
+Func ___asignateFreeFrame(ByRef $resoult, $instant, $references)
+	For $i = 1 To UBound($resoult, 1)-1
 		If $resoult[$i][$instant] == "NULL" Then
 			$resoult[$i][$instant] = $references[$instant]
 			$resoult[0][$instant] = "*"
@@ -482,12 +541,20 @@ Func ___prepareNext(ByRef $resoult, $instant)
 		Next
 	EndIf
 EndFunc   ;==>___prepareNext
+Func ___FrameIsAvailable($frame)
+	If $frame == "BLOCK" Then
+		Return False
+	ElseIf $frame == "NULL" Then
+		MsgBox(16, 0, "Error no controlado", "Se ha producido una situacion que no deberia ser posible."&@CRLF&"Se ha ejecutado un algoritmo de remplazo habiendo tramas libres")
+	EndIf
+	Return True
+EndFunc
 
-Func ___WorkingSetCalcule(ByRef $references, $instant, $S, ByRef $resoult, ByRef $nFrames)
+Func ___WorkingSetCalcule(ByRef $references, $instant, $S, $wsP, ByRef $resoult, ByRef $o)
 	If Not ___WorkingSetIsTime($instant, $S) Then Return
 
 	Local $pages[$S]
-	$nFrames = 0
+	$nFrames = 0; Los que debe tener
 	For $i = $instant - 1 To $instant - $S Step -1
 		$found = False
 		For $j = 0 To $nFrames - 1
@@ -499,9 +566,74 @@ Func ___WorkingSetCalcule(ByRef $references, $instant, $S, ByRef $resoult, ByRef
 		EndIf
 	Next
 
-	For $i = $nFrames + 1 To UBound($resoult, 1) - 1
-		$resoult[$i][$instant] = "NULL"
+	$aFrames = 0; Los que tiene ahora
+	For $i = 1 To UBound($resoult, 1)-1
+		If $resoult[$i][$instant] <> "BLOCK" Then $aFrames += 1
 	Next
+
+	While $aFrames < $nFrames
+		For $i = 1 To UBound($resoult, 1)-1
+			If $resoult[$i][$instant] == "BLOCK" Then
+				$aFrames += 1
+				$resoult[$i][$instant] = "NULL"
+				ExitLoop
+			EndIf
+		Next
+	WEnd
+	While $aFrames > $nFrames
+		For $i = 1 To UBound($resoult, 1)-1
+			If $resoult[$i][$instant] == "NULL" Then
+				$aFrames -= 1
+				$resoult[$i][$instant] = "BLOCK"
+				ExitLoop(2)
+			EndIf
+		Next
+
+		Switch($wsP)
+			Case -2
+				For $i = 1 To UBound($resoult, 1)-1
+					If $resoult[$i][$instant] <> "BLOCK" Then
+						$aFrames -= 1
+						$resoult[$i][$instant] = "BLOCK"
+						ExitLoop
+					EndIf
+				Next
+			Case -3
+				For $i = UBound($resoult, 1)-1 To 1 Step -1
+					If $resoult[$i][$instant] <> "BLOCK" Then
+						$aFrames -= 1
+						$resoult[$i][$instant] = "BLOCK"
+						ExitLoop
+					EndIf
+				Next
+			Case Else
+				Switch($wsP)
+					Case $SWAP_ALGORITHM_OPTIMUS
+						$replacement = ___FindOptimusReplacement($resoult, $instant, $references)
+					Case $SWAP_ALGORITHM_FIFO
+						$replacement = ___FindFifoReplacement($resoult, $instant, $o[0])
+					Case $SWAP_ALGORITHM_LRU
+						$replacement = ___FindCounterReplacement($resoult, $instant, $o[0])
+					Case $SWAP_ALGORITHM_NRU
+						$replacement = ___FindRMCReplacement($resoult, $instant, $o[0])
+						___PTsetValue($o[0], "R", $resoult[$replacement][$instant], 0)
+						___PTsetValue($o[0], "M", $resoult[$replacement][$instant], 0)
+					Case $SWAP_ALGORITHM_AGING
+						$replacement = ___FindBufferReplacement($resoult, $instant, $o[0])
+						___BufferUpdate($o[0], $replacement - 1)
+					Case $SWAP_ALGORITHM_CLOCK
+						$replacement = ___FindClockReplacement($resoult, $instant, $o[0], $o[1])
+					Case $SWAP_ALGORITHM_LFU, $SWAP_ALGORITHM_MFU
+						$replacement = ___FindXFUReplacement($resoult, $instant, $o[0], $o[1])
+						___PTsetValue($o[0], "Counter", $resoult[$replacement][$instant], 0)
+						___PTsetValue($o[0], "Entrance", $references[$instant], $o[2])
+					Case $SWAP_ALGORITHM_CLOCK_LINUX
+						$replacement = ___FindLinuxReplacement($resoult, $instant, $o[0], $o[1])
+				EndSwitch
+				$resoult[$replacement][$instant] = "BLOCK"
+				$aFrames -= 1
+		EndSwitch
+	WEnd
 EndFunc   ;==>___WorkingSetCalcule
 Func ___WorkingSetIsTime($instant, $S)
 	Return $S <> 0 And $instant <> 0 And Mod($instant, $S) == 0
@@ -742,7 +874,7 @@ Func ___Test_4()
 	Local $goodResoult[][] = [["*", "*", "*", "**", "", "**", "", "**", "**", "**", "", "", "**", "**", "**", "", "**", "**", "", "**"], [7, 7, 7, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4], ["NULL", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ["NULL", "NULL", 1, 1, 1, 3, 3, 3, 2, 3, 3, 3, 2, 1, 2, 2, 1, 7, 7, 1]]
 	;_ArrayDisplay($goodResoult)
 	Local $inicializacion[] = [0, 0, $modificati]
-	$resoult = _MMUsolve($SWAP_ALGORITHM_NRU, $references, 3, False, 0, $inicializacion)
+	$resoult = _MMUsolve($SWAP_ALGORITHM_NRU, $references, 3, False, 0, 0, $inicializacion)
 	If @error Then MsgBox(0, "Error", @error)
 	;_ArrayDisplay($resoult)
 	MsgBox(0, "Resultado Test 4", ____Compare($resoult, $goodResoult) ? "Correcto" : "Incorrecto")
@@ -753,7 +885,7 @@ Func ___Test_5()
 	_ArrayDisplay($goodResoult)
 	;TODO: Modificar el resultado correcto
 	Local $initial[3] = [0, 3, 0]
-	$resoult = _MMUsolve($SWAP_ALGORITHM_AGING, $references, 3, False, 0, $initial)
+	$resoult = _MMUsolve($SWAP_ALGORITHM_AGING, $references, 3, False, 0, 0, $initial)
 	If @error Then MsgBox(0, "Error", @error)
 	_ArrayDisplay($resoult)
 	MsgBox(0, "Resultado Test 5", ____Compare($resoult, $goodResoult) ? "Correcto" : "Incorrecto")

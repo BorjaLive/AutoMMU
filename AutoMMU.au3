@@ -1,6 +1,15 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=..\..\Downloads\Dryicons-Aesthetica-2-Page-swap.ico
 #AutoIt3Wrapper_Outfile=..\AutoMMU.exe
+#AutoIt3Wrapper_Res_Description=Simulador de algoritmos de remplazo
+#AutoIt3Wrapper_Res_Fileversion=0.0.1.3
+#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
+#AutoIt3Wrapper_Res_ProductName=AutoMMU
+#AutoIt3Wrapper_Res_ProductVersion=0.0.1
+#AutoIt3Wrapper_Res_CompanyName=B0vE
+#AutoIt3Wrapper_Res_LegalCopyright=Borja López Pineda
+#AutoIt3Wrapper_Res_LegalTradeMarks=GNU GPL 3 copyleft
+#AutoIt3Wrapper_Res_Language=1034
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 #cs ----------------------------------------------------------------------------
 
@@ -98,6 +107,7 @@ GUICtrlSetOnEvent($main_menu_load, "event_load")
 GUICtrlSetOnEvent($main_menu_help, "event_help")
 GUICtrlSetOnEvent($main_menu_credicts, "event_credicts")
 
+GUICtrlSetOnEvent($main_check_ws, "event_show_ws")
 GUICtrlSetOnEvent($main_button_inicialFifo, "event_show_fifo")
 GUICtrlSetOnEvent($main_button_inicialBuffer, "event_show_buffer")
 GUICtrlSetOnEvent($main_button_inicialPT, "event_show_pt")
@@ -194,6 +204,23 @@ GUICtrlSetOnEvent($preasignation_button_save, "event_save_preasignation")
 GUISetOnEvent($GUI_EVENT_CLOSE, "close_preasignation")
 
 GUISetState(@SW_HIDE, $GUI_preasignation)
+#EndRegion
+#Region WorkingSet
+$GUI_ws = GUICreate("", 250, 210)
+
+GUISetFont(14)
+
+GUICtrlCreateLabel("Politica de eliminacion", 10, 10)
+$ws_radio_poli1 = GUICtrlCreateRadio("El mismo que el remplazo", 10, 40, 240)
+$ws_radio_poli2 = GUICtrlCreateRadio("La trama mas baja", 10, 65, 240)
+$ws_radio_poli3 = GUICtrlCreateRadio("La trama mas alta", 10, 90, 240)
+$ws_check_reset = GUICtrlCreateCheckbox("Reiniciar bit de referencia", 10, 125, 240)
+$ws_button_save = GUICtrlCreateButton("Guardar", 65, 170, 120)
+
+GUICtrlSetOnEvent($ws_button_save, "event_save_ws")
+GUISetOnEvent($GUI_EVENT_CLOSE, "close_ws")
+
+GUISetState(@SW_HIDE, $GUI_ws)
 #EndRegion
 #EndRegion
 
@@ -320,7 +347,8 @@ Func event_run()
 			$inicialization[1] = $PAGETABLE
 	EndSwitch
 
-	$resoult = _MMUsolve($SELECTED_ALGORITHM, $REFERENCES, GUICtrlRead($main_input_iniT), GUICtrlRead($main_check_ws)==$GUI_CHECKED, GUICtrlRead($main_input_wss), $inicialization)
+	$resoult = _MMUsolve($SELECTED_ALGORITHM, $REFERENCES, GUICtrlRead($main_input_iniT), GUICtrlRead($ws_check_reset)==$GUI_CHECKED, _
+						 GUICtrlRead($main_check_ws)==$GUI_CHECKED?GUICtrlRead($main_input_wss):0, _getWSpolitic(), $inicialization)
 	If @error Then
 		MsgBox(16, "Error", "Codigo de error: "&@error&@CRLF&"Informacion extendida: "&@extended&@CRLF&"Esto es una alpha, acostumbrate.")
 		Return
@@ -340,6 +368,10 @@ Func event_run()
 			GUICtrlCreateInput($resoult[$frame][$instant], 20+$instant*45, 35+($frame-1)*25, 40, 20, BitOR($ES_READONLY, $ES_CENTER))
 			If $instant > 0 And $resoult[$frame][$instant-1] <> $resoult[$frame][$instant] Then GUICtrlSetColor(-1, 0xFF0000)
 			GUICtrlSetFont(-1,9,550)
+			If GUICtrlRead(-1) == "BLOCK" Then
+				GUICtrlSetBkColor(-1, 0x555555)
+				GUICtrlSetData(-1, "")
+			EndIf
 		Next
 	Next
 	For $instant = 0 To UBound($REFERENCES)-1
@@ -383,7 +415,9 @@ Func event_save()
 	FileWrite($file, (GUICtrlRead($main_check_ws)==$GUI_CHECKED?1:0)&@CRLF)
 	FileWrite($file, GUICtrlRead($main_input_wss)&@CRLF)
 	FileWrite($file, GUICtrlRead($main_input_iniT)&@CRLF)
-	FileWrite($file, GUICtrlRead($main_input_bufferSize))
+	FileWrite($file, GUICtrlRead($main_input_bufferSize)&@CRLF)
+	FileWrite($file, _getWSpolitic()&@CRLF)
+	FileWrite($file, GUICtrlRead($ws_check_reset)==$GUI_CHECKED?1:0)
 
 	FileClose($file)
 EndFunc
@@ -423,6 +457,22 @@ Func event_load()
 	GUICtrlSetData($main_input_wss, FileReadLine($file))
 	GUICtrlSetData($main_input_iniT, FileReadLine($file))
 	GUICtrlSetData($main_input_bufferSize, FileReadLine($file))
+	$wsPolitics = FileReadLine($file)
+	Switch($wsPolitics)
+		Case 2
+			GUICtrlSetState($ws_radio_poli1, $GUI_UNCHECKED)
+			GUICtrlSetState($ws_radio_poli2, $GUI_CHECKED)
+			GUICtrlSetState($ws_radio_poli3, $GUI_UNCHECKED)
+		Case 3
+			GUICtrlSetState($ws_radio_poli1, $GUI_UNCHECKED)
+			GUICtrlSetState($ws_radio_poli2, $GUI_UNCHECKED)
+			GUICtrlSetState($ws_radio_poli3, $GUI_CHECKED)
+		Case Else
+			GUICtrlSetState($ws_radio_poli1, $GUI_CHECKED)
+			GUICtrlSetState($ws_radio_poli2, $GUI_UNCHECKED)
+			GUICtrlSetState($ws_radio_poli3, $GUI_UNCHECKED)
+	EndSwitch
+	GUICtrlSetState($ws_check_reset, FileReadLine($file)=="1"?$GUI_CHECKED:$GUI_UNCHECKED)
 
 	FileClose($file)
 
@@ -623,6 +673,9 @@ Func event_save_preasignation()
 	;_ArrayDisplay($PREASIGNATIONS)
 	close_preasignation()
 EndFunc
+Func event_save_ws()
+	close_ws()
+EndFunc
 
 Func event_show_references()
 	_swap_main($GUI_references)
@@ -638,6 +691,9 @@ Func event_show_pt()
 EndFunc
 Func event_show_preasignation()
 	_swap_main($GUI_preasignation)
+EndFunc
+Func event_show_ws()
+	If GUICtrlRead($main_check_ws) == $GUI_CHECKED Then _swap_main($GUI_ws)
 EndFunc
 
 Func event_closeResoult()
@@ -675,6 +731,10 @@ EndFunc
 Func close_preasignation()
 	_restore_main()
 	GUISetState(@SW_HIDE, $GUI_preasignation)
+EndFunc
+Func close_ws()
+	_restore_main()
+	GUISetState(@SW_HIDE, $GUI_ws)
 EndFunc
 #EndRegion
 
@@ -743,6 +803,17 @@ Func _Text2Array($t)
 	Return StringSplit($t, "|", 3)
 EndFunc
 
+Func _getWSpolitic()
+	If GUICtrlRead($ws_radio_poli1) == $GUI_CHECKED Then
+		Return 1
+	ElseIf GUICtrlRead($ws_radio_poli2) == $GUI_CHECKED Then
+		Return 2
+	ElseIf GUICtrlRead($ws_radio_poli3) == $GUI_CHECKED Then
+		Return 3
+	Else
+		Return 1
+	EndIf
+EndFunc
 Func _actLabels()
 	If ___FIFOisfifo($FIFO) Then
 		GUICtrlSetData($main_label_iniciatedFifo, "Cargado")
@@ -774,7 +845,7 @@ Func _restore_main()
 		GUISetState(@SW_HIDE, $OPEN_WINDOW)
 		$CurPos = WinGetPos($OPEN_WINDOW)
 		$Mainpos = WinGetPos($GUI_main)
-		WinMove($GUI_main, "", $Mainpos[0]+($CurPos[2]/2), $Mainpos[1])
+		If $MainPos[0] == $CurPos[0]-10-$Mainpos[2] Then WinMove($GUI_main, "", $Mainpos[0]+($CurPos[2]/2), $Mainpos[1])
 		$OPEN_WINDOW = 0
 	EndIf
 EndFunc
