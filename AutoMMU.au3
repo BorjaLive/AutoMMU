@@ -2,7 +2,7 @@
 #AutoIt3Wrapper_Icon=..\..\Downloads\Dryicons-Aesthetica-2-Page-swap.ico
 #AutoIt3Wrapper_Outfile=..\AutoMMU.exe
 #AutoIt3Wrapper_Res_Description=Simulador de algoritmos de remplazo
-#AutoIt3Wrapper_Res_Fileversion=0.0.3.1
+#AutoIt3Wrapper_Res_Fileversion=0.0.3.2
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Res_ProductName=AutoMMU
 #AutoIt3Wrapper_Res_ProductVersion=0.0.3
@@ -212,8 +212,8 @@ GUISetFont(14)
 
 GUICtrlCreateLabel("Politica de eliminacion", 10, 10)
 $ws_radio_poli1 = GUICtrlCreateRadio("El mismo que el remplazo", 10, 40, 240)
-$ws_radio_poli2 = GUICtrlCreateRadio("La trama mas baja", 10, 65, 240)
-$ws_radio_poli3 = GUICtrlCreateRadio("La trama mas alta", 10, 90, 240)
+$ws_radio_poli2 = GUICtrlCreateRadio("Numero mas bajo", 10, 65, 240)
+$ws_radio_poli3 = GUICtrlCreateRadio("Numero mas alto", 10, 90, 240)
 $ws_check_reset = GUICtrlCreateCheckbox("Reiniciar bit de referencia", 10, 125, 240)
 $ws_button_save = GUICtrlCreateButton("Guardar", 65, 170, 120)
 
