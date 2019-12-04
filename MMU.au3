@@ -191,10 +191,11 @@ Func __MMU_LRU($references, $wsP, $workingSetS, $inicialCounters, ByRef $resoult
 			$resoult[0][$instant] = "**"
 		EndIf
 		___PTsetValue($pageTable, "Counter", $references[$instant], $HWcounter)
-		;____PTdesglose($pageTable)
+
 		___prepareNext($resoult, $instant)
 		$HWcounter += 1
 	Next
+	;____PTdump($pageTable)
 EndFunc   ;==>__MMU_LRU
 Func __MMU_NRU($references, $wsP, $wsResetsBR, $workingSetS, $moficications, $inicialPageTable, ByRef $resoult)
 	If ___PTispt($inicialPageTable) And ___PThasColum($inicialPageTable, "R") And ___PThasColum($inicialPageTable, "M") Then
@@ -291,12 +292,14 @@ Func __MMU_CLOCK($references, $wsP, $wsResetsBR, $workingSetS, $inicialPageTable
 				$resoult[0][$instant] = "**"
 			EndIf
 			___FIFOadd($fifo, $references[$instant])
-		ElseIf ___PTgetValue($pageTable, "R", $references[$instant]) == 0 Then
-			___FIFOadd($fifo, $references[$instant])	;Medida para que las nuevas paginas tambien entren
+		ElseIf Not ___FIFOisin($fifo, $references[$instant]) Then
+			___FIFOadd($fifo, $references[$instant])
 		EndIf
 		___PTsetValue($pageTable, "R", $references[$instant], 1)
 		___prepareNext($resoult, $instant)
+		;____PTdump($pageTable)
 	Next
+	;____PTdump($pageTable)
 EndFunc   ;==>__MMU_CLOCK
 Func __MMU_XFU($references, $wsP, $workingSetS, $inicialCounters, ByRef $resoult, $LFUxMFU)
 	If ___PTispt($inicialCounters) And ___PThasColum($inicialCounters, "Counter") Then
@@ -368,7 +371,7 @@ Func __MMU_CLOCK_LINUX($references, $wsP, $wsResetsBR, $workingSetS, $inicialPag
 				$resoult[0][$instant] = "**"
 			EndIf
 			___FIFOadd($fifo, $references[$instant])
-		ElseIf ___PTgetValue($pageTable, "R", $references[$instant]) == 0 Then
+		ElseIf Not ___FIFOisin($fifo, $references[$instant]) Then
 			___FIFOadd($fifo, $references[$instant])	;Medida para que las nuevas paginas tambien entren
 		EndIf
 		___PTsetValue($pageTable, "Chances", $references[$instant], ___PTgetValue($pageTable, "Chances", $references[$instant]) + 1)
@@ -682,8 +685,8 @@ Func ___PTgetValue(ByRef $table, $colum, $page)
 	Return 0
 EndFunc   ;==>___PTgetValue
 Func ___PTsetValue(ByRef $table, $colum, $page, $value)
-	If Not ___PTexist($table, $page) Then ___PTaddPage($table, $page)
-
+	If Not ___PTexist($table, $page) AND $page <> "ALL" Then ___PTaddPage($table, $page)
+	;____PTdump($table)
 	$header = $table[0]
 	$nPages = $header[0]
 	$nCols = $header[1]
@@ -701,7 +704,7 @@ Func ___PTsetValue(ByRef $table, $colum, $page, $value)
 			$table[$i] = $row
 		EndIf
 	Next
-
+	;____PTdump($table)
 	Return True
 EndFunc   ;==>___PTsetValue
 Func ___PTexist(ByRef $table, $page)
@@ -760,7 +763,10 @@ Func ___FIFOcreate()
 EndFunc   ;==>___FIFOcreate
 Func ___FIFOadd(ByRef $fifo, $name)
 	For $i = 1 To $fifo[0]
-		If $name == $fifo[$i] Then MsgBox(16,"Error no controlado", "Ha ocurrido algo que no deberia ocurrir nunca."&@CRLF&"Se agrega a un fifo un elemento que ya estaba. Si lo metemos es porque antes tubo que salir joder.")
+		If $name == $fifo[$i] Then
+			MsgBox(16,"Error inocurrible", "Meto en la fifo a "&$name&" pero ya esta en ella")
+			____FIFOdump($fifo)
+		EndIf
 	Next
 
 	$size = $fifo[0] + 1
@@ -793,6 +799,12 @@ EndFunc   ;==>___FIFOisfifo
 Func ___FIFOsize(ByRef $fifo)
 	Return $fifo[0]
 EndFunc   ;==>___FIFOsize
+Func ___FIFOisin(Byref $fifo, $name)
+	For $i = 1 To $fifo[0]
+		If $fifo[$i] == $name Then Return True
+	Next
+	Return False
+EndFunc
 
 Func ___BufferCreate($size, $channels)
 	Dim $buffer[$channels][$size]

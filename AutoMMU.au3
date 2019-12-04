@@ -2,10 +2,10 @@
 #AutoIt3Wrapper_Icon=..\..\Downloads\Dryicons-Aesthetica-2-Page-swap.ico
 #AutoIt3Wrapper_Outfile=..\AutoMMU.exe
 #AutoIt3Wrapper_Res_Description=Simulador de algoritmos de remplazo
-#AutoIt3Wrapper_Res_Fileversion=0.0.3.2
+#AutoIt3Wrapper_Res_Fileversion=0.0.4.2
 #AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
 #AutoIt3Wrapper_Res_ProductName=AutoMMU
-#AutoIt3Wrapper_Res_ProductVersion=0.0.3
+#AutoIt3Wrapper_Res_ProductVersion=0.0.4
 #AutoIt3Wrapper_Res_CompanyName=B0vE
 #AutoIt3Wrapper_Res_LegalCopyright=Borja López Pineda
 #AutoIt3Wrapper_Res_LegalTradeMarks=GNU GPL 3 copyleft
@@ -117,6 +117,12 @@ GUICtrlSetOnEvent($main_button_preasignation, "event_show_preasignation")
 GUICtrlSetOnEvent($main_combo_algorith, "event_change_algorithm")
 GUISetOnEvent($GUI_EVENT_CLOSE, "event_exit")
 
+HotKeySet("^s","event_save")
+HotKeySet("^o","event_load")
+HotKeySet("^r","event_clear")
+HotKeySet("{f1}","event_help")
+HotKeySet("{f5}","event_run")
+
 GUISetState(@SW_SHOW, $GUI_main)
 #EndRegion
 #Region REFERENCES
@@ -205,7 +211,7 @@ GUISetOnEvent($GUI_EVENT_CLOSE, "close_preasignation")
 
 GUISetState(@SW_HIDE, $GUI_preasignation)
 #EndRegion
-#Region WorkingSet
+#Region WORKINGSET
 $GUI_ws = GUICreate("", 250, 210)
 
 GUISetFont(14)
@@ -227,6 +233,7 @@ GUISetState(@SW_HIDE, $GUI_ws)
 #Region DATA
 $SELECTED_ALGORITHM = $SWAP_ALGORITHM_OPTIMUS
 $OPEN_WINDOW = 0
+$LAST_FOLDER = @DesktopDir
 
 Global $FIFO = 0
 Global $BUFFER = 0
@@ -322,6 +329,11 @@ Func event_run()
 	Local $inicialization[1]
 	$inicialization[0] = $PREASIGNATIONS
 
+	;Si, es necesario llegar a estos extremos
+	$sFIFO = $FIFO
+	$sPAGETABLE = $PAGETABLE
+	$sBUFFER = $BUFFER
+
 	Switch($SELECTED_ALGORITHM)
 		Case $SWAP_ALGORITHM_OPTIMUS
 		Case $SWAP_ALGORITHM_FIFO
@@ -346,14 +358,16 @@ Func event_run()
 			ReDim $inicialization[2]
 			$inicialization[1] = $PAGETABLE
 	EndSwitch
-
 	$resoult = _MMUsolve($SELECTED_ALGORITHM, $REFERENCES, GUICtrlRead($main_input_iniT), GUICtrlRead($ws_check_reset)==$GUI_CHECKED, _
 						 GUICtrlRead($main_check_ws)==$GUI_CHECKED?GUICtrlRead($main_input_wss):0, _getWSpolitic(), $inicialization)
 	If @error Then
 		MsgBox(16, "Error", "Codigo de error: "&@error&@CRLF&"Informacion extendida: "&@extended&@CRLF&"Esto es una alpha, acostumbrate.")
 		Return
 	EndIf
-	;_ArrayDisplay($resoult)
+
+	$FIFO = $sFIFO
+	$PAGETABLE = $sPAGETABLE
+	$BUFFER = $sBUFFER
 
 	$width = UBound($resoult, 2)
 	$height = UBound($resoult, 1)-1
@@ -403,7 +417,10 @@ Func event_run()
 
 EndFunc
 Func event_save()
-	$file = FileOpen(FileSaveDialog("Selecciona un lugar para guardar el archivo.", @DesktopDir, "AutoMMU (*.mmu)"), 2)
+	$path = FileSaveDialog("Selecciona un lugar para guardar el archivo.", $LAST_FOLDER, "AutoMMU (*.mmu)")
+	If $path == "" Then Return
+	$LAST_FOLDER = StringMid($path, 1, StringInStr($path, "\", 0, -1)-1)
+	$file = FileOpen($path, 2)
 
 	FileWrite($file, _FIFO2Text($FIFO)&@CRLF)
 	FileWrite($file, _Buffer2Text($BUFFER)&@CRLF)
@@ -422,7 +439,10 @@ Func event_save()
 	FileClose($file)
 EndFunc
 Func event_load()
-	$file = FileOpen(FileOpenDialog("Selecciona un lugar para guardar el archivo.", @DesktopDir, "AutoMMU (*.mmu)"), 0)
+	$path = FileOpenDialog("Selecciona un lugar para guardar el archivo.", $LAST_FOLDER, "AutoMMU (*.mmu)")
+	If Not FileExists($path) Then Return
+	$LAST_FOLDER = StringMid($path, 1, StringInStr($path, "\", 0, -1)-1)
+	$file = FileOpen($path, 0)
 
 	$FIFO = _Text2FIFO(FileReadLine($file))
 	$BUFFER = _Text2Buffer(FileReadLine($file))
@@ -539,6 +559,8 @@ Func event_load()
 		Next
 		GUICtrlSetData($preasignation_edit_preasignations, StringTrimRight($text, 2))
 	EndIf
+
+	_actLabels()
 EndFunc
 Func event_clear()
 	Run(@AutoItExe)
